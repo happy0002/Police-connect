@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 // ✅ Define Navigation Type
@@ -28,37 +29,38 @@ type Props = {
   navigation: LoginScreenNavigationProp;
 };
 
-// ✅ Corrected Function Definition
+// ✅ API BASE URL (Ensure http:// is included)
+const BASE_URL = "http://172.20.10.7:8000"; // Replace with your actual local IP
+
+// ✅ LoginScreen Component
 const LoginScreen = ({ navigation }: Props) => {
   const [uid, setUid] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Hardcoded Credentials
-  const validCredentials = {
-    uid: '123456',
-    password: 'password123',
-  };
-
-  // ✅ Handle Login
+  // ✅ Handle Login with FastAPI Backend
   const handleLogin = async () => {
-    Keyboard.dismiss(); // ✅ Hide keyboard when login is clicked
+    Keyboard.dismiss(); // Hide keyboard when login is clicked
 
     if (!uid || !password) {
       Alert.alert('Error', 'Please enter both UID and Password.');
       return;
     }
 
-    if (uid === validCredentials.uid && password === validCredentials.password) {
-      try {
-        await AsyncStorage.setItem('token', 'your-auth-token');
-        Alert.alert('Login Successful', 'Welcome back!');
-        navigation.replace('MainApp'); // ✅ Redirect to MainApp
-      } catch (error) {
-        console.error('Login Error:', error);
-        Alert.alert('Error', 'Something went wrong while logging in.');
-      }
-    } else {
-      Alert.alert('Login Failed', 'Invalid UID or Password.');
+    setLoading(true);
+
+    try {
+      const response = await axios.post(`${BASE_URL}/auth/login`, { uid, password });
+
+      // ✅ If login is successful, save token & navigate
+      await AsyncStorage.setItem('token', response.data.token || 'dummy-token'); // Modify if token is returned
+      Alert.alert('Login Successful', 'Welcome back!');
+      navigation.replace('MainApp'); // ✅ Redirect to MainApp
+    } catch (error: any) {
+      console.error('Login Error:', error);
+      Alert.alert('Login Failed', error.response?.data?.detail || 'Invalid UID or Password.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,8 +102,8 @@ const LoginScreen = ({ navigation }: Props) => {
           />
 
           {/* 🔘 Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginText}>Login</Text>
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
+            <Text style={styles.loginText}>{loading ? 'Logging in...' : 'Login'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </TouchableWithoutFeedback>
@@ -165,6 +167,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 10,
     marginTop: 10,
+    alignItems: 'center',
   },
   loginText: {
     color: '#fff',

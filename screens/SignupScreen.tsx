@@ -25,17 +25,20 @@ type Props = {
   navigation: SignupScreenNavigationProp;
 };
 
+// ✅ API BASE URL (Ensure http:// is included)
+const BASE_URL = "http://172.20.10.7:8000"; // Replace with your laptop's local IP
+
 function SignupScreen({ navigation }: Props) {
   const [fullName, setFullName] = useState('');
-  const [uid, setUid] = useState(''); // ✅ New UID Field (Unique Police ID)
+  const [uid, setUid] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false); // ✅ Loading state
+  const [loading, setLoading] = useState(false);
 
   // ✅ Validation Function
   const validateInputs = () => {
-    const phoneRegex = /^[6-9]\d{9}$/; // Indian phone number validation
+    const phoneRegex = /^[6-9]\d{9}$/;
 
     if (!fullName || !uid || !phone || !password) {
       Alert.alert('Error', 'All fields are required!');
@@ -56,9 +59,9 @@ function SignupScreen({ navigation }: Props) {
   const handleSignup = async () => {
     if (!validateInputs()) return;
 
-    setLoading(true); // Show loader while signing up
+    setLoading(true);
     try {
-      const response = await axios.post('http://172.20.10.7:8000/auth/signup', {
+      const response = await axios.post(`${BASE_URL}/auth/signup`, {  // ✅ Fixed URL
         full_name: fullName,
         uid,
         phone,
@@ -95,7 +98,7 @@ function SignupScreen({ navigation }: Props) {
         />
       </View>
 
-      {/* UID Field (Unique ID of Police) */}
+      {/* UID Field */}
       <View style={styles.inputContainer}>
         <FontAwesome name="id-badge" size={20} color="#333" style={styles.icon} />
         <TextInput
@@ -156,32 +159,31 @@ function SignupScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E3C72', // ✅ Police Blue Theme
+    backgroundColor: '#1E3C72',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  // ✅ Circular Logo Container
   logoContainer: {
     width: 120,
     height: 120,
-    borderRadius: 60, // Makes it circular
-    backgroundColor: 'white', // Optional: Background color
+    borderRadius: 60,
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    elevation: 5, // Adds shadow for better visibility
+    elevation: 5,
   },
   logo: {
     width: 100,
     height: 100,
-    borderRadius: 50, // Ensures the image is also circular
+    borderRadius: 50,
     resizeMode: 'contain',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff', // ✅ White Background for Inputs
+    backgroundColor: '#fff',
     borderRadius: 10,
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   signupButton: {
-    backgroundColor: '#D32F2F', // ✅ Red Button for Signup
+    backgroundColor: '#D32F2F',
     paddingVertical: 15,
     borderRadius: 10,
     width: '100%',
@@ -212,10 +214,10 @@ const styles = StyleSheet.create({
   loginText: {
     marginTop: 15,
     fontSize: 16,
-    color: '#fff', // ✅ White text for better visibility
+    color: '#fff',
   },
   loginLink: {
-    color: '#FFD700', // ✅ Gold Highlight for Login Link
+    color: '#FFD700',
     fontWeight: 'bold',
   },
 });
