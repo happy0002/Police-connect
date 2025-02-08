@@ -5,15 +5,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  FlatList,
 } from "react-native";
 import { Audio } from "expo-av";
 
 export default function ProfileScreen() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [recordings, setRecordings] = useState<
+    { uri: string; duration: number }[]
+  >([]);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [timer, setTimer] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState<number | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -27,18 +30,13 @@ export default function ProfileScreen() {
     return () => clearInterval(interval);
   }, [recording]);
 
-  // ✅ Start Recording Function
+  // ✅ Start Recording
   async function startRecording() {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permission Required", "You need to allow microphone access.");
         return;
-      }
-
-      // ✅ Stop any existing recording before starting a new one
-      if (recording) {
-        await stopRecording();
       }
 
       await Audio.setAudioModeAsync({
@@ -57,27 +55,27 @@ export default function ProfileScreen() {
     }
   }
 
-  // ✅ Stop Recording Function
+  // ✅ Stop Recording and Save it
   async function stopRecording() {
     try {
       if (!recording) return;
 
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
-      setRecordingUri(uri);
+      setRecordings((prev) => [...prev, { uri: uri as string, duration: timer }]);
       setRecording(null);
+      setTimer(0);
       Alert.alert("Recording Saved", `File saved at: ${uri}`);
-      console.log("Recording saved at:", uri);
     } catch (error) {
       console.error("Stopping error:", error);
       Alert.alert("Error", "Failed to stop recording.");
     }
   }
 
-  // ✅ Play Recorded Audio with Maximum Volume
-  async function playRecording() {
+  // ✅ Play Selected Recording
+  async function playRecording(uri: string, index: number) {
     try {
-      if (!recordingUri) return;
+      if (!uri) return;
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -87,20 +85,19 @@ export default function ProfileScreen() {
       });
 
       const { sound } = await Audio.Sound.createAsync(
-        { uri: recordingUri },
-        { shouldPlay: true, volume: 1.0 } // ✅ Maximum Volume
+        { uri },
+        { shouldPlay: true, volume: 1.0 }
       );
 
       setSound(sound);
-      setIsPlaying(true);
+      setIsPlaying(index);
 
-      // ✅ Ensure Volume is Set to Maximum
       await sound.setVolumeAsync(1.0);
 
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) return;
         if (status.didJustFinish) {
-          setIsPlaying(false);
+          setIsPlaying(null);
           sound.unloadAsync();
         }
       });
@@ -117,40 +114,57 @@ export default function ProfileScreen() {
       <Text style={styles.title}>Audio Recorder</Text>
 
       {/* ⏳ Timer Display */}
-      <Text style={styles.timer}>{recording ? `Recording: ${timer}s` : "Not Recording"}</Text>
+      <Text style={styles.timer}>
+        {recording ? `Recording: ${timer}s` : "Not Recording"}
+      </Text>
 
-      {/* 🎙️ Start Recording Button */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: "#1976D2" }]}
-        onPress={startRecording}
-        disabled={recording !== null}
-      >
-        <Text style={styles.buttonText}>Start Recording</Text>
-      </TouchableOpacity>
+      {/* 📜 List of Recorded Audios */}
+      <FlatList
+        data={recordings}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item, index }) => (
+          <View style={styles.recordingItem}>
+            <Text style={styles.recordingText}>
+              Recording {index + 1} - {item.duration}s
+            </Text>
+            <TouchableOpacity
+              style={[styles.button, styles.playButton]}
+              onPress={() => playRecording(item.uri, index)}
+              disabled={isPlaying === index}
+            >
+              <Text style={styles.buttonText}>
+                {isPlaying === index ? "Playing..." : "Play"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
 
-      {/* ⏹ Stop Recording Button */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: "#D32F2F" }]}
-        onPress={stopRecording}
-        disabled={recording === null}
-      >
-        <Text style={styles.buttonText}>Stop Recording</Text>
-      </TouchableOpacity>
-
-      {/* ▶ Play Recording Button (Appears After Recording is Saved) */}
-      {recordingUri && (
+      {/* 🎙️ Buttons at the Bottom */}
+      <View style={styles.buttonContainer}>
+        {/* 🎤 Start Recording Button */}
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: isPlaying ? "#9E9E9E" : "#388E3C" }]}
-          onPress={playRecording}
-          disabled={isPlaying}
+          style={[styles.button, styles.startButton]}
+          onPress={startRecording}
+          disabled={recording !== null}
         >
-          <Text style={styles.buttonText}>{isPlaying ? "Playing..." : "Play Recording"}</Text>
+          <Text style={styles.buttonText}>Start</Text>
         </TouchableOpacity>
-      )}
+
+        {/* ⏹ Stop Recording Button */}
+        <TouchableOpacity
+          style={[styles.button, styles.stopButton]}
+          onPress={stopRecording}
+          disabled={recording === null}
+        >
+          <Text style={styles.buttonText}>Stop</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
+// ✅ Updated Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -168,13 +182,48 @@ const styles = StyleSheet.create({
   timer: {
     fontSize: 18,
     color: "#D32F2F",
-    marginBottom: 15,
+    marginBottom: 20,
+  },
+  recordingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "90%",
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#E3F2FD",
+    marginBottom: 10,
+  },
+  recordingText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  playButton: {
+    backgroundColor: "#388E3C",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+  buttonContainer: {
+    position: "absolute",
+    bottom: 40,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "80%",
   },
   button: {
+    flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 25,
+    marginHorizontal: 10,
     borderRadius: 10,
-    marginVertical: 10,
+    alignItems: "center",
+  },
+  startButton: {
+    backgroundColor: "#1976D2",
+  },
+  stopButton: {
+    backgroundColor: "#D32F2F",
   },
   buttonText: {
     color: "#fff",
