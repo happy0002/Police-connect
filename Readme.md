@@ -17,7 +17,7 @@ The **Punjab Police FIR Management System** is a mobile application designed to 
 - **React Native** – Mobile app development  
 - **Expo** – Simplified React Native workflows  
 - **TypeScript** – Ensures type safety and better maintainability  
-- **AsyncStorage** – Secure storage for user authentication  
+- **Plsql** – Secure storage for user authentication  
 - **React Navigation** – For smooth screen transitions  
 - **Expo Linear Gradient** – Beautiful UI designs  
 - **React Native Vector Icons** – Crisp and modern icons  
