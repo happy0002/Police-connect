@@ -6,13 +6,17 @@ import {
   StyleSheet,
   Alert,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
+import axios from "axios";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ProfileScreen() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordings, setRecordings] = useState<
-    { uri: string; duration: number }[]
+    { uri: string; duration: number; uploading: boolean }[]
   >([]);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [timer, setTimer] = useState(0);
@@ -30,7 +34,6 @@ export default function ProfileScreen() {
     return () => clearInterval(interval);
   }, [recording]);
 
-  // ✅ Start Recording
   async function startRecording() {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -55,14 +58,16 @@ export default function ProfileScreen() {
     }
   }
 
-  // ✅ Stop Recording and Save it
   async function stopRecording() {
     try {
       if (!recording) return;
 
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
-      setRecordings((prev) => [...prev, { uri: uri as string, duration: timer }]);
+      setRecordings((prev) => [
+        ...prev,
+        { uri: uri as string, duration: timer, uploading: false },
+      ]);
       setRecording(null);
       setTimer(0);
       Alert.alert("Recording Saved", `File saved at: ${uri}`);
@@ -72,7 +77,6 @@ export default function ProfileScreen() {
     }
   }
 
-  // ✅ Play Selected Recording
   async function playRecording(uri: string, index: number) {
     try {
       if (!uri) return;
@@ -109,16 +113,62 @@ export default function ProfileScreen() {
     }
   }
 
+  async function uploadRecording(uri: string, index: number) {
+    try {
+      setRecordings((prev) =>
+        prev.map((rec, idx) =>
+          idx === index ? { ...rec, uploading: true } : rec
+        )
+      );
+
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) {
+        Alert.alert("Upload Failed", "File not found.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", {
+        uri,
+        name: `recording-${Date.now()}.mp3`,
+        type: "audio/mp3",
+      } as any);
+
+      await axios.post(
+        "https://your-backend-url.com/upload",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      Alert.alert("Upload Success", "Your file has been uploaded.");
+      setRecordings((prev) =>
+        prev.map((rec, idx) =>
+          idx === index ? { ...rec, uploading: false } : rec
+        )
+      );
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Upload Failed", "Could not upload the file.");
+      setRecordings((prev) =>
+        prev.map((rec, idx) =>
+          idx === index ? { ...rec, uploading: false } : rec
+        )
+      );
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Audio Recorder</Text>
 
-      {/* ⏳ Timer Display */}
       <Text style={styles.timer}>
         {recording ? `Recording: ${timer}s` : "Not Recording"}
       </Text>
 
-      {/* 📜 List of Recorded Audios */}
       <FlatList
         data={recordings}
         keyExtractor={(item, index) => index.toString()}
@@ -128,21 +178,32 @@ export default function ProfileScreen() {
               Recording {index + 1} - {item.duration}s
             </Text>
             <TouchableOpacity
-              style={[styles.button, styles.playButton]}
+              style={styles.playButton}
               onPress={() => playRecording(item.uri, index)}
               disabled={isPlaying === index}
             >
-              <Text style={styles.buttonText}>
-                {isPlaying === index ? "Playing..." : "Play"}
-              </Text>
+              <Ionicons
+                name={isPlaying === index ? "pause-circle" : "play-circle"}
+                size={28}
+                color="white"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={() => uploadRecording(item.uri, index)}
+              disabled={item.uploading}
+            >
+              {item.uploading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Ionicons name="cloud-upload" size={26} color="white" />
+              )}
             </TouchableOpacity>
           </View>
         )}
       />
 
-      {/* 🎙️ Buttons at the Bottom */}
       <View style={styles.buttonContainer}>
-        {/* 🎤 Start Recording Button */}
         <TouchableOpacity
           style={[styles.button, styles.startButton]}
           onPress={startRecording}
@@ -151,7 +212,6 @@ export default function ProfileScreen() {
           <Text style={styles.buttonText}>Start</Text>
         </TouchableOpacity>
 
-        {/* ⏹ Stop Recording Button */}
         <TouchableOpacity
           style={[styles.button, styles.stopButton]}
           onPress={stopRecording}
@@ -164,72 +224,18 @@ export default function ProfileScreen() {
   );
 }
 
-// ✅ Updated Styles
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    color: "#1976D2",
-  },
-  timer: {
-    fontSize: 18,
-    color: "#D32F2F",
-    marginBottom: 20,
-  },
-  recordingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "90%",
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: "#E3F2FD",
-    marginBottom: 10,
-  },
-  recordingText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  playButton: {
-    backgroundColor: "#388E3C",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-  },
-  buttonContainer: {
-    position: "absolute",
-    bottom: 40,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "80%",
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 12,
-    marginHorizontal: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  startButton: {
-    backgroundColor: "#1976D2",
-  },
-  stopButton: {
-    backgroundColor: "#D32F2F",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff", paddingHorizontal: 20 },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20, color: "#1976D2" },
+  timer: { fontSize: 16, color: "#D32F2F", marginBottom: 20 },
+  recordingItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "90%", padding: 10, borderRadius: 8, backgroundColor: "#E3F2FD", marginBottom: 10 },
+  buttonContainer: { position: "absolute", bottom: 30, flexDirection: "row", justifyContent: "space-between", width: "80%" },
+  button: { flex: 1, paddingVertical: 10, marginHorizontal: 8, borderRadius: 8, alignItems: "center" },
+  startButton: { backgroundColor: "#4CAF50" },
+  stopButton: { backgroundColor: "#D32F2F" },
+  uploadButton: { backgroundColor: "#FFA500", padding: 8, borderRadius: 8 },
+  playButton: { backgroundColor: "#388E3C", padding: 8, borderRadius: 8 },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });
 
 export default ProfileScreen;

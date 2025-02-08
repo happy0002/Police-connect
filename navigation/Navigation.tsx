@@ -39,7 +39,7 @@ function BottomTabNavigator() {
   );
 }
 
-// ✅ Stack Navigator (Handles Splash + Login + Main App)
+
 export default function Navigation() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
