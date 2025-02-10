@@ -22,8 +22,3 @@ The **Punjab Police FIR Management System** is a mobile application designed to 
 - **Expo Linear Gradient** – Beautiful UI designs  
 - **React Native Vector Icons** – Crisp and modern icons  
 
-## 🚀 Installation & Setup
-1️⃣ **Clone the repository**  
-```sh
-git clone 
-cd punjab-police-fir
